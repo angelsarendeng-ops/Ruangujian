@@ -1705,7 +1705,7 @@ function QuestionsPage({
     mapelId: subjects[0]?.id || 0,
     tipe: "Pilihan ganda" as QuestionType,
     pertanyaan: "",
-    opsi: ["", "", "", ""],
+    opsi: ["", "", "", "", ""],
     kunci: ["0"],
     kesulitan: "Mudah",
     bobot: 10,
@@ -1747,7 +1747,10 @@ function QuestionsPage({
     setForm((f) => ({
       ...f,
       pertanyaan: "",
-      opsi: f.tipe === "Benar/Salah" ? ["Benar", "Salah"] : ["", "", "", ""],
+      opsi:
+        f.tipe === "Benar/Salah"
+          ? ["Benar", "Salah"]
+          : ["", "", "", "", ""],
       kunci: ["0"],
     }));
     toast.success("Soal berhasil disimpan.");
@@ -1779,7 +1782,9 @@ function QuestionsPage({
         const opsi =
           tipe === "Benar/Salah"
             ? ["Benar", "Salah"]
-            : [r.opsiA, r.opsiB, r.opsiC, r.opsiD].map(String);
+            : [r.opsiA, r.opsiB, r.opsiC, r.opsiD, r.opsiE]
+                .filter((option) => option !== undefined && option !== "")
+                .map(String);
         const answerValues = String(r.kunci || "A")
           .split(/[;,]/)
           .map((value) => value.trim());
@@ -1925,7 +1930,7 @@ function QuestionsPage({
                 </div>
                 <h3>{q.pertanyaan}</h3>
                 <div className="q-option-preview">
-                  {q.opsi.slice(0, 4).map((o, j) => (
+                  {q.opsi.map((o, j) => (
                     <span
                       className={
                         q.kunci.includes(String(j)) ? "correct-preview" : ""
@@ -2009,7 +2014,7 @@ function QuestionsPage({
                       opsi:
                         tipe === "Benar/Salah"
                           ? ["Benar", "Salah"]
-                          : ["", "", "", ""],
+                          : ["", "", "", "", ""],
                       kunci: ["0"],
                     });
                   }}
@@ -2156,6 +2161,7 @@ async function exportQuestionTemplate() {
       opsiB: "Pilihan B",
       opsiC: "Pilihan C",
       opsiD: "Pilihan D",
+      opsiE: "Pilihan E",
       kunci: "A",
       bobot: 10,
       pembahasan: "Penjelasan",

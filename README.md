@@ -26,7 +26,7 @@ Kata sandi demo hanya untuk percobaan. Aplikasi menyimpan hash SHA-256 dengan sa
 ## Alur singkat
 
 1. Admin mengelola akun dan kelas, lalu mengatur identitas sekolah. Impor pengguna mendukung kolom `username`, `nama`, `role`, `nisn`, `password` pada Excel/CSV.
-2. Guru menambahkan soal pilihan ganda, pilihan ganda kompleks, atau benar/salah lewat menu **Input Soal**, mengelolanya di **Bank Soal**, lalu memilih soal saat membuat ujian dan membagikan token kepada peserta. Impor soal menggunakan kolom `kodeMapel`, `tipe`, `kesulitan`, `tag`, `pertanyaan`, `opsiA` sampai `opsiD`, `kunci`, `bobot`, dan `pembahasan`. Untuk pilihan ganda kompleks, isi beberapa kunci dengan huruf A–D yang dipisahkan koma; untuk benar/salah, gunakan `Benar` atau `Salah`.
+2. Guru menambahkan soal pilihan ganda, pilihan ganda kompleks, atau benar/salah lewat menu **Input Soal**, mengelolanya di **Bank Soal**, lalu memilih soal saat membuat ujian dan membagikan token kepada peserta. Impor soal menggunakan kolom `kodeMapel`, `tipe`, `kesulitan`, `tag`, `pertanyaan`, `opsiA` sampai `opsiE`, `kunci`, `bobot`, dan `pembahasan`. Untuk pilihan ganda kompleks, isi beberapa kunci dengan huruf A–E yang dipisahkan koma; untuk benar/salah, gunakan `Benar` atau `Salah`.
 3. Siswa memilih ujian, memasukkan token, menjawab soal, dan mengumpulkannya. Jawaban disimpan otomatis per perangkat dan sesi dapat dilanjutkan setelah refresh.
 4. Guru melihat rekap nilai dan mengunduhnya ke Excel. Admin dapat mengunduh backup JSON lengkap dan memulihkannya dari menu Pengaturan.
 
