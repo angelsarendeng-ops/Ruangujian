@@ -5,7 +5,20 @@ describe("penilaian otomatis", () => {
     expect(gradeAnswer("Pilihan ganda", ["1"], ["1"], 10)).toBe(10);
     expect(gradeAnswer("Pilihan ganda", ["0"], ["1"], 10)).toBe(0);
   });
+  it("menilai soal benar/salah seperti pilihan tunggal", () => {
+    expect(gradeAnswer("Benar/Salah", ["0"], ["0"], 10)).toBe(10);
+    expect(gradeAnswer("Benar/Salah", ["1"], ["0"], 10)).toBe(0);
+  });
   it("menerapkan skor parsial untuk pilihan kompleks saat diminta", () => {
+    expect(
+      gradeAnswer(
+        "Pilihan ganda kompleks",
+        ["a", "b"],
+        ["a", "b"],
+        10,
+        true,
+      ),
+    ).toBe(10);
     expect(
       gradeAnswer("Pilihan ganda kompleks", ["a"], ["a", "b"], 10, true),
     ).toBe(5);

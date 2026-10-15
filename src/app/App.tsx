@@ -43,10 +43,15 @@ type Section =
   | "Pengguna"
   | "Kelas & Mapel"
   | "Bank Soal"
+  | "Input Soal"
   | "Ujian"
   | "Rekap Nilai"
   | "Aktivitas"
   | "Pengaturan";
+type QuestionType =
+  | "Pilihan ganda"
+  | "Pilihan ganda kompleks"
+  | "Benar/Salah";
 const nav: { label: Section; icon: typeof LayoutDashboard; roles: string[] }[] =
   [
     {
@@ -57,6 +62,7 @@ const nav: { label: Section; icon: typeof LayoutDashboard; roles: string[] }[] =
     { label: "Pengguna", icon: Users, roles: ["admin"] },
     { label: "Kelas & Mapel", icon: GraduationCap, roles: ["admin"] },
     { label: "Bank Soal", icon: BookOpen, roles: ["guru"] },
+    { label: "Input Soal", icon: Plus, roles: ["guru"] },
     { label: "Ujian", icon: Clock3, roles: ["guru", "siswa"] },
     { label: "Rekap Nilai", icon: Activity, roles: ["guru"] },
     { label: "Aktivitas", icon: Activity, roles: ["admin"] },
@@ -183,6 +189,8 @@ function App() {
             <MasterPage />
           ) : section === "Bank Soal" ? (
             <QuestionsPage user={user} />
+          ) : section === "Input Soal" ? (
+            <QuestionsPage user={user} initialShow />
           ) : section === "Ujian" ? (
             <ExamsPage user={user} />
           ) : section === "Rekap Nilai" ? (
@@ -1098,7 +1106,16 @@ function ExamRunner({
                     "answer-option " +
                     (answers[q.id!]?.includes(String(i)) ? "selected" : "")
                   }
-                  onClick={() => void updateAnswer(q.id!, [String(i)])}
+                  onClick={() =>
+                    void updateAnswer(
+                      q.id!,
+                      q.tipe === "Pilihan ganda kompleks"
+                        ? answers[q.id!]?.includes(String(i))
+                          ? answers[q.id!].filter((answer) => answer !== String(i))
+                          : [...(answers[q.id!] || []), String(i)]
+                        : [String(i)],
+                    )
+                  }
                 >
                   <i className="option-letter">{String.fromCharCode(65 + i)}</i>
                   <span>{option}</span>
@@ -1669,7 +1686,13 @@ function MasterPage() {
     </>
   );
 }
-function QuestionsPage({ user }: { user: User }) {
+function QuestionsPage({
+  user,
+  initialShow = false,
+}: {
+  user: User;
+  initialShow?: boolean;
+}) {
   const questions =
     useLiveQuery(
       () => db.soal.where("guruId").equals(user.id!).toArray(),
@@ -1677,12 +1700,13 @@ function QuestionsPage({ user }: { user: User }) {
     ) || [];
   const subjects = useLiveQuery(() => db.mapel.toArray(), []) || [];
   const [query, setQuery] = useState("");
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(initialShow);
   const [form, setForm] = useState({
     mapelId: subjects[0]?.id || 0,
+    tipe: "Pilihan ganda" as QuestionType,
     pertanyaan: "",
     opsi: ["", "", "", ""],
-    kunci: "0",
+    kunci: ["0"],
     kesulitan: "Mudah",
     bobot: 10,
   });
@@ -1694,26 +1718,38 @@ function QuestionsPage({ user }: { user: User }) {
     q.pertanyaan.toLowerCase().includes(query.toLowerCase()),
   );
   async function save() {
-    if (!form.pertanyaan || !form.opsi.every(Boolean) || !subjects.length)
+    if (
+      !form.pertanyaan.trim() ||
+      !form.opsi.every((option) => option.trim()) ||
+      !form.kunci.length ||
+      !Number.isFinite(form.bobot) ||
+      form.bobot <= 0 ||
+      !subjects.length
+    )
       return toast.error(
-        "Lengkapi pertanyaan, pilihan jawaban, dan mata pelajaran.",
+        "Lengkapi pertanyaan, pilihan, kunci jawaban, bobot, dan mata pelajaran.",
       );
     await db.soal.add({
       mapelId: +form.mapelId,
       guruId: user.id!,
-      tipe: "Pilihan ganda",
+      tipe: form.tipe,
       kesulitan: form.kesulitan,
       tingkat: "XII",
       tag: "umum",
       pertanyaan: form.pertanyaan,
       opsi: form.opsi,
-      kunci: [form.kunci],
+      kunci: form.kunci,
       bobot: +form.bobot,
       pembahasan: "",
       createdAt: new Date().toISOString(),
     });
     setShow(false);
-    setForm((f) => ({ ...f, pertanyaan: "", opsi: ["", "", "", ""] }));
+    setForm((f) => ({
+      ...f,
+      pertanyaan: "",
+      opsi: f.tipe === "Benar/Salah" ? ["Benar", "Salah"] : ["", "", "", ""],
+      kunci: ["0"],
+    }));
     toast.success("Soal berhasil disimpan.");
   }
   async function importQs(file?: File) {
@@ -1732,16 +1768,39 @@ function QuestionsPage({ user }: { user: User }) {
               x.kode.toLowerCase() === String(r.kodeMapel || "").toLowerCase(),
           ) || subjects[0];
         if (!r.pertanyaan || !m) continue;
+        const supportedTypes: QuestionType[] = [
+          "Pilihan ganda",
+          "Pilihan ganda kompleks",
+          "Benar/Salah",
+        ];
+        const tipe = supportedTypes.includes(r.tipe as QuestionType)
+          ? (r.tipe as QuestionType)
+          : "Pilihan ganda";
+        const opsi =
+          tipe === "Benar/Salah"
+            ? ["Benar", "Salah"]
+            : [r.opsiA, r.opsiB, r.opsiC, r.opsiD].map(String);
+        const answerValues = String(r.kunci || "A")
+          .split(/[;,]/)
+          .map((value) => value.trim());
+        const kunci = answerValues.map((value) => {
+          if (tipe === "Benar/Salah") {
+            return /^(salah|false|b)$/i.test(value) ? "1" : "0";
+          }
+          return /^[0-3]$/.test(value)
+            ? value
+            : String(value.toUpperCase().charCodeAt(0) - 65);
+        });
         await db.soal.add({
           mapelId: m.id!,
           guruId: user.id!,
-          tipe: String(r.tipe || "Pilihan ganda"),
+          tipe,
           kesulitan: String(r.kesulitan || "Mudah"),
           tingkat: "XII",
           tag: String(r.tag || ""),
           pertanyaan: String(r.pertanyaan),
-          opsi: [r.opsiA, r.opsiB, r.opsiC, r.opsiD].map(String),
-          kunci: [String(r.kunci || "A").charCodeAt(0) - 65 + ""],
+          opsi,
+          kunci,
           bobot: Number(r.bobot || 10),
           pembahasan: String(r.pembahasan || ""),
           createdAt: new Date().toISOString(),
@@ -1789,10 +1848,35 @@ function QuestionsPage({ user }: { user: User }) {
         </div>
         <div className="mini-stat">
           <span className="mini-stat-icon green">
-            <CheckCircle2 />
+            <Check />
           </span>
           <span>Pilihan ganda</span>
-          <strong>{questions.length}</strong>
+          <strong>
+            {
+              questions.filter((q) => q.tipe === "Pilihan ganda").length
+            }
+          </strong>
+        </div>
+        <div className="mini-stat">
+          <span className="mini-stat-icon blue">
+            <Check />
+          </span>
+          <span>Pilihan ganda kompleks</span>
+          <strong>
+            {
+              questions.filter((q) => q.tipe === "Pilihan ganda kompleks")
+                .length
+            }
+          </strong>
+        </div>
+        <div className="mini-stat">
+          <span className="mini-stat-icon amber">
+            <CheckCircle2 />
+          </span>
+          <span>Benar/Salah</span>
+          <strong>
+            {questions.filter((q) => q.tipe === "Benar/Salah").length}
+          </strong>
         </div>
         <div className="mini-stat">
           <span className="mini-stat-icon amber">
@@ -1910,9 +1994,31 @@ function QuestionsPage({ user }: { user: User }) {
             <span className="eyebrow dark-eyebrow">EDITOR SOAL</span>
             <h2>Buat soal baru</h2>
             <p className="muted">
-              Tambahkan pertanyaan pilihan ganda ke bank soal.
+              Pilih jenis soal, lalu lengkapi pertanyaan dan kunci jawabannya.
             </p>
             <div className="form-grid">
+              <label>
+                Kategori soal
+                <select
+                  value={form.tipe}
+                  onChange={(e) => {
+                    const tipe = e.target.value as QuestionType;
+                    setForm({
+                      ...form,
+                      tipe,
+                      opsi:
+                        tipe === "Benar/Salah"
+                          ? ["Benar", "Salah"]
+                          : ["", "", "", ""],
+                      kunci: ["0"],
+                    });
+                  }}
+                >
+                  <option>Pilihan ganda</option>
+                  <option>Pilihan ganda kompleks</option>
+                  <option>Benar/Salah</option>
+                </select>
+              </label>
               <label>
                 Mata pelajaran
                 <select
@@ -1957,6 +2063,7 @@ function QuestionsPage({ user }: { user: User }) {
                   Pilihan {String.fromCharCode(65 + i)}
                   <input
                     value={o}
+                    disabled={form.tipe === "Benar/Salah"}
                     onChange={(e) =>
                       setForm({
                         ...form,
@@ -1968,19 +2075,44 @@ function QuestionsPage({ user }: { user: User }) {
                   />
                 </label>
               ))}
-              <label>
-                Kunci jawaban
-                <select
-                  value={form.kunci}
-                  onChange={(e) => setForm({ ...form, kunci: e.target.value })}
-                >
+              {form.tipe === "Pilihan ganda kompleks" ? (
+                <fieldset className="span-two">
+                  <legend>Kunci jawaban (pilih semua yang benar)</legend>
                   {form.opsi.map((_, i) => (
-                    <option value={i} key={i}>
-                      {String.fromCharCode(65 + i)}
-                    </option>
+                    <label key={i}>
+                      <input
+                        type="checkbox"
+                        checked={form.kunci.includes(String(i))}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            kunci: e.target.checked
+                              ? [...form.kunci, String(i)]
+                              : form.kunci.filter((key) => key !== String(i)),
+                          })
+                        }
+                      />
+                      Pilihan {String.fromCharCode(65 + i)}
+                    </label>
                   ))}
-                </select>
-              </label>
+                </fieldset>
+              ) : (
+                <label>
+                  Kunci jawaban
+                  <select
+                    value={form.kunci[0]}
+                    onChange={(e) => setForm({ ...form, kunci: [e.target.value] })}
+                  >
+                    {form.opsi.map((_, i) => (
+                      <option value={i} key={i}>
+                        {form.tipe === "Benar/Salah"
+                          ? form.opsi[i]
+                          : String.fromCharCode(65 + i)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Bobot (poin)
                 <input
