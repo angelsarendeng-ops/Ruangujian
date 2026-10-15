@@ -113,6 +113,12 @@ export async function hashPassword(password: string, salt: string) {
 }
 export async function seed() {
   if (await db.users.count()) {
+    const demoTeacher = await db.users.get({ username: "guru" });
+    if (demoTeacher?.nama === "Ibu Sari, S.Pd.") {
+      await db.users.update(demoTeacher.id!, {
+        nama: "Ibu Enyel Kristi Sarendeng, S.Pd.,Gr",
+      });
+    }
     const school = await db.pengaturan.get("sekolah");
     if (school?.value === "SMA Negeri 1 Nusantara") {
       await db.pengaturan.put({
@@ -160,7 +166,7 @@ export async function seed() {
         },
         {
           username: "guru",
-          nama: "Ibu Sari, S.Pd.",
+          nama: "Ibu Enyel Kristi Sarendeng, S.Pd.,Gr",
           role: "guru",
           aktif: true,
           salt,
