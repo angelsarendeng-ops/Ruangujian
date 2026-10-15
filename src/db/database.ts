@@ -113,6 +113,15 @@ export async function hashPassword(password: string, salt: string) {
 }
 export async function seed() {
   if (await db.users.count()) {
+    const demoExam = await db.ujian
+      .where("judul")
+      .equals("Asesmen Matematika — Persiapan UTBK")
+      .first();
+    if (demoExam?.id) {
+      await db.ujian.update(demoExam.id, {
+        judul: "Asesmen Bahasa Indonesia — Persiapan UTBK",
+      });
+    }
     const demoTeacher = await db.users.get({ username: "guru" });
     if (demoTeacher?.nama === "Ibu Sari, S.Pd.") {
       await db.users.update(demoTeacher.id!, {
@@ -233,7 +242,7 @@ export async function seed() {
         { allKeys: true },
       );
       await db.ujian.add({
-        judul: "Asesmen Matematika — Persiapan UTBK",
+        judul: "Asesmen Bahasa Indonesia — Persiapan UTBK",
         mapelId: matematika,
         guruId: guru.id!,
         kelasIds: [kelasId, kelas2],
