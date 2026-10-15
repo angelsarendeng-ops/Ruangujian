@@ -947,7 +947,13 @@ function ExamRunner({
     const total = ordered.reduce((n, q) => n + q.bobot, 0);
     let earned = 0;
     for (const q of ordered)
-      earned += gradeAnswer(q.tipe, s.jawaban[q.id!] || [], q.kunci, q.bobot);
+      earned += gradeAnswer(
+        q.tipe,
+        s.jawaban[q.id!] || [],
+        q.kunci,
+        q.bobot,
+        q.tipe === "Pilihan ganda kompleks",
+      );
     const score = total ? Math.round((earned / total) * 100) : 0;
     const status = ordered.some((q) => q.tipe === "Esai")
       ? "menunggu koreksi"
