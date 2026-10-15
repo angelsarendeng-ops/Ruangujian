@@ -17,6 +17,14 @@ export function gradeAnswer(
       (weight * hits) / k.size - ((a.size - hits) * weight) / k.size,
     );
   }
+  if (type === "Benar/Salah") {
+    if (!keys.length) return 0;
+    const correct = keys.reduce(
+      (count, key, index) => count + Number(answer[index] === key),
+      0,
+    );
+    return (weight * correct) / keys.length;
+  }
   if (type === "Menjodohkan")
     return answer.join("|") === keys.join("|") ? weight : 0;
   return answer[0] === keys[0] ? weight : 0;

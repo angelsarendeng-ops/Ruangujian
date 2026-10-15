@@ -9,6 +9,12 @@ describe("penilaian otomatis", () => {
     expect(gradeAnswer("Benar/Salah", ["0"], ["0"], 10)).toBe(10);
     expect(gradeAnswer("Benar/Salah", ["1"], ["0"], 10)).toBe(0);
   });
+  it("memberikan nilai proporsional untuk tabel benar/salah", () => {
+    expect(
+      gradeAnswer("Benar/Salah", ["0", "1", "0"], ["0", "0", "1"], 12),
+    ).toBe(4);
+    expect(gradeAnswer("Benar/Salah", [], ["0", "1"], 10)).toBe(0);
+  });
   it("menerapkan skor parsial untuk pilihan kompleks saat diminta", () => {
     expect(
       gradeAnswer(

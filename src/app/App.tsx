@@ -1031,6 +1031,18 @@ function ExamRunner({
       </div>
     );
   const q = ordered[idx];
+  const isLegacyTrueFalse =
+    q?.tipe === "Benar/Salah" &&
+    q.opsi.length === 2 &&
+    q.opsi[0] === "Benar" &&
+    q.opsi[1] === "Salah";
+  const trueFalseStatements =
+    q?.tipe === "Benar/Salah"
+      ? isLegacyTrueFalse
+        ? [q.pertanyaan]
+        : q.opsi
+      : [];
+  const trueFalseAnswers = answers[q?.id || -1] || [];
   return (
     <div className="modal-backdrop exam-overlay">
       <div className="test-shell">
@@ -1058,7 +1070,7 @@ function ExamRunner({
                 <button
                   className={
                     (idx === i ? "current " : "") +
-                    (answers[x.id!]?.length ? "answered" : "")
+                    (answers[x.id!]?.some(Boolean) ? "answered" : "")
                   }
                   key={x.id}
                   onClick={() => setIdx(i)}
@@ -1078,13 +1090,13 @@ function ExamRunner({
             <div className="progress-info">
               Progres pengerjaan
               <strong>
-                {Object.values(answers).filter((a) => a.length).length} dari{" "}
+                {Object.values(answers).filter((a) => a.some(Boolean)).length} dari{" "}
                 {questions.length}
               </strong>
               <div className="progress-track">
                 <i
                   style={{
-                    width: `${questions.length ? (Object.values(answers).filter((a) => a.length).length / questions.length) * 100 : 0}%`,
+                    width: `${questions.length ? (Object.values(answers).filter((a) => a.some(Boolean)).length / questions.length) * 100 : 0}%`,
                   }}
                 />
               </div>
@@ -1098,31 +1110,75 @@ function ExamRunner({
               <span className="weight-chip">Bobot {q?.bobot || 0} poin</span>
             </div>
             <h2>{q?.pertanyaan || "Memuat soal…"}</h2>
-            <div className="answer-options">
-              {q?.opsi.map((option, i) => (
-                <button
-                  key={i}
-                  className={
-                    "answer-option " +
-                    (answers[q.id!]?.includes(String(i)) ? "selected" : "")
-                  }
-                  onClick={() =>
-                    void updateAnswer(
-                      q.id!,
-                      q.tipe === "Pilihan ganda kompleks"
-                        ? answers[q.id!]?.includes(String(i))
-                          ? answers[q.id!].filter((answer) => answer !== String(i))
-                          : [...(answers[q.id!] || []), String(i)]
-                        : [String(i)],
-                    )
-                  }
-                >
-                  <i className="option-letter">{String.fromCharCode(65 + i)}</i>
-                  <span>{option}</span>
-                  {answers[q.id!]?.includes(String(i)) && <Check size={17} />}
-                </button>
-              ))}
-            </div>
+            {q?.tipe === "Benar/Salah" ? (
+              <div className="table-scroll true-false-table-wrap">
+                <table className="true-false-table">
+                  <thead>
+                    <tr>
+                      <th>Pernyataan</th>
+                      <th>Benar</th>
+                      <th>Salah</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trueFalseStatements.map((statement, row) => (
+                      <tr key={row}>
+                        <td>{statement}</td>
+                        {[0, 1].map((choice) => (
+                          <td key={choice}>
+                            <input
+                              type="radio"
+                              name={`true-false-${q.id}-${row}`}
+                              aria-label={`${choice === 0 ? "Benar" : "Salah"} untuk pernyataan ${row + 1}`}
+                              checked={
+                                trueFalseAnswers[row] === String(choice)
+                              }
+                              onChange={() => {
+                                const next = [...trueFalseAnswers];
+                                next[row] = String(choice);
+                                void updateAnswer(q.id!, next);
+                              }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="answer-options">
+                {q?.opsi.map((option, i) => (
+                  <button
+                    key={i}
+                    className={
+                      "answer-option " +
+                      (answers[q.id!]?.includes(String(i)) ? "selected" : "")
+                    }
+                    onClick={() =>
+                      void updateAnswer(
+                        q.id!,
+                        q.tipe === "Pilihan ganda kompleks"
+                          ? answers[q.id!]?.includes(String(i))
+                            ? answers[q.id!].filter(
+                                (answer) => answer !== String(i),
+                              )
+                            : [...(answers[q.id!] || []), String(i)]
+                          : [String(i)],
+                      )
+                    }
+                  >
+                    <i className="option-letter">
+                      {String.fromCharCode(65 + i)}
+                    </i>
+                    <span>{option}</span>
+                    {answers[q.id!]?.includes(String(i)) && (
+                      <Check size={17} />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="question-footer">
               <span>
                 Jawaban tersimpan otomatis <CheckCircle2 size={15} />
@@ -1720,7 +1776,9 @@ function QuestionsPage({
   async function save() {
     if (
       !form.pertanyaan.trim() ||
+      !form.opsi.length ||
       !form.opsi.every((option) => option.trim()) ||
+      (form.tipe === "Benar/Salah" && form.kunci.length !== form.opsi.length) ||
       !form.kunci.length ||
       !Number.isFinite(form.bobot) ||
       form.bobot <= 0 ||
@@ -1748,9 +1806,7 @@ function QuestionsPage({
       ...f,
       pertanyaan: "",
       opsi:
-        f.tipe === "Benar/Salah"
-          ? ["Benar", "Salah"]
-          : ["", "", "", "", ""],
+        f.tipe === "Benar/Salah" ? [""] : ["", "", "", "", ""],
       kunci: ["0"],
     }));
     toast.success("Soal berhasil disimpan.");
@@ -1930,7 +1986,33 @@ function QuestionsPage({
                 </div>
                 <h3>{q.pertanyaan}</h3>
                 <div className="q-option-preview">
-                  {q.opsi.map((o, j) => (
+                  {q.tipe === "Benar/Salah" ? (
+                    <div className="table-scroll true-false-table-wrap">
+                      <table className="true-false-table question-preview-table">
+                        <thead>
+                          <tr>
+                            <th>Pernyataan</th>
+                            <th>Kunci</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(q.opsi.length === 2 &&
+                          q.opsi[0] === "Benar" &&
+                          q.opsi[1] === "Salah"
+                            ? [q.pertanyaan]
+                            : q.opsi
+                          ).map((statement, row) => (
+                            <tr key={row}>
+                              <td>{statement}</td>
+                              <td>
+                                {q.kunci[row] === "0" ? "Benar" : "Salah"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : q.opsi.map((o, j) => (
                     <span
                       className={
                         q.kunci.includes(String(j)) ? "correct-preview" : ""
@@ -2013,7 +2095,7 @@ function QuestionsPage({
                       tipe,
                       opsi:
                         tipe === "Benar/Salah"
-                          ? ["Benar", "Salah"]
+                          ? [""]
                           : ["", "", "", "", ""],
                       kunci: ["0"],
                     });
@@ -2052,23 +2134,118 @@ function QuestionsPage({
                   <option>Sulit</option>
                 </select>
               </label>
-              <label className="span-two">
-                Pertanyaan
-                <textarea
-                  rows={3}
-                  value={form.pertanyaan}
-                  onChange={(e) =>
-                    setForm({ ...form, pertanyaan: e.target.value })
-                  }
-                  placeholder="Tuliskan pertanyaan…"
-                />
-              </label>
-              {form.opsi.map((o, i) => (
+              {form.tipe !== "Benar/Salah" ? (
+                <label className="span-two">
+                  Pertanyaan
+                  <textarea
+                    rows={3}
+                    value={form.pertanyaan}
+                    onChange={(e) =>
+                      setForm({ ...form, pertanyaan: e.target.value })
+                    }
+                    placeholder="Tuliskan pertanyaan…"
+                  />
+                </label>
+              ) : (
+                <label className="span-two">
+                  Petunjuk tabel
+                  <input
+                    value={form.pertanyaan}
+                    onChange={(e) =>
+                      setForm({ ...form, pertanyaan: e.target.value })
+                    }
+                    placeholder="Contoh: Tentukan benar atau salah setiap pernyataan."
+                  />
+                </label>
+              )}
+              {form.tipe === "Benar/Salah" ? (
+                <div className="span-two true-false-editor">
+                  <div className="table-scroll true-false-table-wrap">
+                    <table className="true-false-table">
+                      <thead>
+                        <tr>
+                          <th>Pernyataan</th>
+                          <th>Kunci jawaban</th>
+                          <th aria-label="Aksi" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {form.opsi.map((statement, row) => (
+                          <tr key={row}>
+                            <td>
+                              <textarea
+                                aria-label={`Pernyataan ${row + 1}`}
+                                rows={2}
+                                value={statement}
+                                onChange={(e) =>
+                                  setForm({
+                                    ...form,
+                                    opsi: form.opsi.map((value, i) =>
+                                      i === row ? e.target.value : value,
+                                    ),
+                                  })
+                                }
+                                placeholder={`Tulis pernyataan ${row + 1}`}
+                              />
+                            </td>
+                            <td>
+                              <select
+                                aria-label={`Kunci pernyataan ${row + 1}`}
+                                value={form.kunci[row] || "0"}
+                                onChange={(e) =>
+                                  setForm({
+                                    ...form,
+                                    kunci: form.kunci.map((value, i) =>
+                                      i === row ? e.target.value : value,
+                                    ),
+                                  })
+                                }
+                              >
+                                <option value="0">Benar</option>
+                                <option value="1">Salah</option>
+                              </select>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="icon-button danger-icon"
+                                aria-label={`Hapus pernyataan ${row + 1}`}
+                                disabled={form.opsi.length === 1}
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    opsi: form.opsi.filter((_, i) => i !== row),
+                                    kunci: form.kunci.filter((_, i) => i !== row),
+                                  })
+                                }
+                              >
+                                <X size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    type="button"
+                    className="button button-soft"
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        opsi: [...form.opsi, ""],
+                        kunci: [...form.kunci, "0"],
+                      })
+                    }
+                  >
+                    <Plus size={15} /> Tambah pernyataan
+                  </button>
+                </div>
+              ) : form.opsi.map((o, i) => (
                 <label key={i}>
                   Pilihan {String.fromCharCode(65 + i)}
                   <input
                     value={o}
-                    disabled={form.tipe === "Benar/Salah"}
                     onChange={(e) =>
                       setForm({
                         ...form,
@@ -2101,7 +2278,7 @@ function QuestionsPage({
                     </label>
                   ))}
                 </fieldset>
-              ) : (
+              ) : form.tipe !== "Benar/Salah" ? (
                 <label>
                   Kunci jawaban
                   <select
@@ -2110,14 +2287,12 @@ function QuestionsPage({
                   >
                     {form.opsi.map((_, i) => (
                       <option value={i} key={i}>
-                        {form.tipe === "Benar/Salah"
-                          ? form.opsi[i]
-                          : String.fromCharCode(65 + i)}
+                        {String.fromCharCode(65 + i)}
                       </option>
                     ))}
                   </select>
                 </label>
-              )}
+              ) : null}
               <label>
                 Bobot (poin)
                 <input
